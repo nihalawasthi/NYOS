@@ -57,7 +57,7 @@ export default function Home() {
       <nav className="fixed top-0 w-full z-50 bg-stone-50/95 backdrop-blur border-b border-stone-200">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="text-xl font-light tracking-tight">
-            <span className="font-semibold">NYOS</span>
+            <img className="max-h-16" src="/logo.png" alt="NYOS Logo" />
           </Link>
           <div className="flex items-center gap-8">
             <Link href="/products" className="text-sm font-light tracking-wide hover:text-stone-600 transition-colors">
