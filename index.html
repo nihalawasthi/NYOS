@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        /* reset page gaps */
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #fff;
+            overflow-x: hidden;
+        }
+
+        .ink-section {
+            position: relative;
+            height: 220vh; /* a bit more scroll room so the fall doesn’t end early */
+            width: 100%;
+            background: #fff;
+            overflow: clip;
+            transition: background-color 500ms ease;
+        }
+
+        /* toggled while we hold after the black fall */
+        .ink-section.dark-bg {
+            background-color: #000;
+        }
+
+        .ink-canvas-wrap {
+            position: sticky;
+            /* pins the canvas for the duration of the section */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: 0;
+        }
+
+        #inkCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            pointer-events: none;
+        }
+
+        .ink-content {
+            position: relative;
+            z-index: 1;
+            /* keep content above the fog/background */
+            padding: 6rem clamp(1rem, 4vw, 6rem);
+            color: #222;
+        }
+    </style>
+</head>
+
+<body>
+    <section class="ink-section">
+        <div class="ink-canvas-wrap">
+            <canvas id="inkCanvas" aria-hidden="true"></canvas>
+        </div>
+
+        <!-- Your content sits above the background/fog -->
+        <div class="ink-content">
+            <h1>Title</h1>
+            <p>Copy…</p>
+            <!-- add more content if you want to scroll longer -->
+        </div>
+    </section>
+    <script>
+        (() => {
+            const section = document.querySelector('.ink-section');
+            const wrap = document.querySelector('.ink-canvas-wrap');
+            const canvas = document.getElementById('inkCanvas');
+            const ctx = canvas.getContext('2d');
+
+            let W = 0, H = 0, DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+            let animId = 0, inView = false, t = 0;
+
+            // Smooth low-pass filters for progress
+            let prevBlack = 0, prevWhite = 0;
+
+            // Tweakables
+            const HOLD_PX = 160;          // wait distance between phases (100–200px)
+            const BLACK_RATIO = 0.6;      // give more scroll to the black fall so it reaches farther
+             const EASE_ALPHA = 0.15;      // smoothing factor for progress
+
+            // Simple seeded hash for stable value-noise
+            function hash(i) {
+                let x = Math.sin(i * 127.1) * 43758.5453;
+                return x - Math.floor(x);
+            }
+
+            // 1D value noise with linear interpolation
+            function noise1D(x) {
+                const i0 = Math.floor(x);
+                const i1 = i0 + 1;
+                const f = x - i0;
+                const u = f * f * (3 - 2 * f); // smoothstep
+                return (1 - u) * hash(i0) + u * hash(i1);
+            }
+
+            // Fractal Brownian Motion (sum of octaves)
+            function fbm(x, octaves = 4, lacunarity = 2, gain = 0.5) {
+                let amp = 0.5, freq = 1, sum = 0;
+                for (let o = 0; o < octaves; o++) {
+                    sum += amp * noise1D(x * freq);
+                    freq *= lacunarity;
+                    amp *= gain;
+                }
+                return sum;
+            }
+
+            function resize() {
+                const rect = wrap.getBoundingClientRect();
+                W = Math.max(1, Math.round(rect.width * DPR));
+                H = Math.max(1, Math.round(rect.height * DPR));
+                canvas.width = W;
+                canvas.height = H;
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.scale(DPR, DPR);
+                draw(); // draw once on resize
+            }
+
+            // Easing helpers
+            const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+            const easeInOutCubic = (x) => (x < 0.5) ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+            const lerp = (a, b, t) => a + (b - a) * t;
+
+            // Get scroll progress across the section and split into phases
+            function phaseProgress() {
+                const vh = window.innerHeight;
+                const topAbs = section.getBoundingClientRect().top + window.scrollY;
+                const start = topAbs;
+                const stickyLen = Math.max(1, section.offsetHeight - vh); // total scroll distance while sticky
+                const sc = clamp(window.scrollY - start, 0, stickyLen);
+
+                // Allocate lengths
+                const blackLen = clamp(BLACK_RATIO * stickyLen, 1, stickyLen - HOLD_PX - 1);
+                const holdLen = Math.min(HOLD_PX, Math.max(0, stickyLen - blackLen));
+                const whiteLen = Math.max(1, stickyLen - blackLen - holdLen);
+
+                const pBlackRaw = clamp(sc / blackLen);
+                const pHoldRaw = clamp((sc - blackLen) / holdLen);
+                const pWhiteRaw = clamp((sc - blackLen - holdLen) / whiteLen);
+
+                // Smooth and ease
+                const pBlack = lerp(prevBlack, easeInOutCubic(pBlackRaw), EASE_ALPHA);
+                const pWhite = lerp(prevWhite, easeInOutCubic(pWhiteRaw), EASE_ALPHA);
+                prevBlack = pBlack;
+                prevWhite = pWhite;
+
+                // Toggle bg color during the hold plateau (fully black under content)
+                if (pBlackRaw >= 1 && pWhiteRaw <= 0) {
+                    section.classList.add('dark-bg');
+                } else if (pWhiteRaw > 0) {
+                    section.classList.remove('dark-bg');
+                }
+
+                return { pBlack, pHoldRaw, pWhite, sc, stickyLen };
+            }
+
+            function clearInk() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                section.classList.remove('dark-bg');
+                prevBlack = 0;
+                prevWhite = 0;
+            }
+
+            function draw() {
+                const { pBlack, pHoldRaw, pWhite, sc, stickyLen } = phaseProgress();
+
+                // If the whole section is out of view, clear and skip
+                const rect = section.getBoundingClientRect();
+                const vh = window.innerHeight;
+                if (rect.bottom <= 0 || rect.top >= vh) {
+                    clearInk();
+                    inView = false;
+                    return;
+                }
+
+                // If we're above the section (not yet entered), reset and skip drawing
+                if (sc <= 0) {
+                    clearInk();
+                    inView = false;
+                    return;
+                }
+                // Do NOT clear when sc >= stickyLen; we keep the final frame so the wipe completes
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                const edgeFeather = 26;
+                const amp = 90;
+                const freq = 1.1;
+                const speed = 0.12;
+
+                function drawCurtain(fill, progress, composite, blurPx = 0) {
+                    if (progress <= 0) return;
+
+                    ctx.save();
+                    if (composite) ctx.globalCompositeOperation = composite;
+                    if (blurPx > 0) ctx.filter = `blur(${blurPx}px)`;
+
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(canvas.width / DPR, 0);
+
+                    const widthCSS = canvas.width / DPR;
+                    const heightCSS = canvas.height / DPR;
+                    const baseY = progress * heightCSS;
+
+                    const steps = 256;
+                    for (let i = steps; i >= 0; i--) {
+                        const x = (i / steps) * widthCSS;
+                        const n = fbm((x * freq + t * speed) * 0.01);
+                        const y = Math.min(heightCSS, baseY + (n - 0.5) * 2 * amp);
+                        ctx.lineTo(x, y);
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = fill;
+                    ctx.shadowColor = fill;
+                    ctx.shadowBlur = edgeFeather;
+                    ctx.fill();
+
+                    ctx.restore();
+                }
+
+                // Draw black fall
+                drawCurtain('#000', pBlack, 'source-over');
+
+                // Then white fall erases the black
+                drawCurtain('#fff', pWhite, 'destination-out', 2);
+
+                const active = (pBlack > 0 && pWhite < 1) || pHoldRaw > 0;
+                inView = active;
+            }
+
+            function loop(now) {
+                t = now * 0.001;
+                if (inView) draw();
+                animId = requestAnimationFrame(loop);
+            }
+
+            // Events
+            window.addEventListener('resize', resize, { passive: true });
+            window.addEventListener('scroll', () => { inView = true; draw(); }, { passive: true });
+
+            resize();
+            animId = requestAnimationFrame(loop);
+        })();
+    </script>
+</body>
+
+</html>

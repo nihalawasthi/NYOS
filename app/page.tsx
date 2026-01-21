@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { ShoppingCart, ChevronRight } from 'lucide-react'
 import dynamic from 'next/dynamic'
@@ -78,18 +78,46 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Curtain + Hero Combined Section */}
+      {/* Curtain + Hero Combined */}
       <CurtainHeroWrapper />
 
       {/* Statement Section */}
-      <section className="py-24 px-6 border-t border-stone-200">
+      <section className="py-24 px-6 bg-black text-white border-t border-stone-200">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-5xl md:text-6xl font-light tracking-tight mb-6">
             Elevated Essentials
           </h1>
-          <p className="text-lg text-stone-600 font-light leading-relaxed max-w-2xl mx-auto mb-12">
+          <p className="text-lg text-stone-300 font-light leading-relaxed max-w-2xl mx-auto mb-12">
             Meticulously crafted tees that balance minimalism with premium quality. Each piece designed to become a wardrobe staple.
           </p>
+        </div>
+        <div className="max-w-7xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-12">
+            <div className="space-y-2">
+              <div className="text-sm font-semibold tracking-widest text-stone-600 mb-4">
+                QUALITY
+              </div>
+              <p className="text-lg font-light text-stone-700">
+                Premium organic cotton with precision stitching for longevity
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-semibold tracking-widest text-stone-600 mb-4">
+                SUSTAINABILITY
+              </div>
+              <p className="text-lg font-light text-stone-700">
+                Ethical production and eco-friendly packaging throughout
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="text-sm font-semibold tracking-widest text-stone-600 mb-4">
+                DESIGN
+              </div>
+              <p className="text-lg font-light text-stone-700">
+                Minimalist aesthetics that transcend seasonal trends
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -100,7 +128,7 @@ export default function Home() {
             {/* Product Image */}
             <div className="animate-fade-in-up">
               <div className="bg-stone-100 rounded-sm overflow-hidden h-96 mb-8 flex items-center justify-center">
-                <img 
+                <img
                   src={`/placeholder.svg?height=400&width=400`}
                   alt={selectedProduct.name}
                   className="w-full h-full object-cover"
@@ -113,11 +141,10 @@ export default function Home() {
                   <button
                     key={color}
                     onClick={() => setSelectedColor(color)}
-                    className={`w-10 h-10 rounded-sm transition-all border-2 ${
-                      selectedColor === color
-                        ? 'border-stone-900 scale-110'
-                        : 'border-stone-300 hover:border-stone-400'
-                    }`}
+                    className={`w-10 h-10 rounded-sm transition-all border-2 ${selectedColor === color
+                      ? 'border-stone-900 scale-110'
+                      : 'border-stone-300 hover:border-stone-400'
+                      }`}
                     style={{ backgroundColor: color }}
                     title={`Color: ${color}`}
                   />
@@ -162,11 +189,10 @@ export default function Home() {
                     setSelectedProduct(product)
                     setSelectedColor(product.colors[0])
                   }}
-                  className={`p-6 rounded-sm transition-all text-left group ${
-                    selectedProduct.id === product.id
-                      ? 'bg-stone-900 text-white'
-                      : 'bg-stone-100 hover:bg-stone-200 text-stone-900'
-                  }`}
+                  className={`p-6 rounded-sm transition-all text-left group ${selectedProduct.id === product.id
+                    ? 'bg-stone-900 text-white'
+                    : 'bg-stone-100 hover:bg-stone-200 text-stone-900'
+                    }`}
                 >
                   <div className="flex gap-2 mb-4">
                     {product.colors.map((color) => (
@@ -178,11 +204,10 @@ export default function Home() {
                     ))}
                   </div>
                   <h3 className="font-light text-sm tracking-wide mb-2">{product.name}</h3>
-                  <p className={`text-sm font-light mb-3 ${
-                    selectedProduct.id === product.id
-                      ? 'text-white/70'
-                      : 'text-stone-600'
-                  }`}>
+                  <p className={`text-sm font-light mb-3 ${selectedProduct.id === product.id
+                    ? 'text-white/70'
+                    : 'text-stone-600'
+                    }`}>
                     {product.description}
                   </p>
                   <div className="text-lg font-light">₹{product.price}</div>
@@ -191,42 +216,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </section>
 
-      {/* Features Section */}
-      <section className="py-20 px-6 bg-stone-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-3 gap-12">
-            <div className="space-y-2">
-              <div className="text-sm font-semibold tracking-widest text-stone-600 mb-4">
-                QUALITY
-              </div>
-              <p className="text-lg font-light text-stone-700">
-                Premium organic cotton with precision stitching for longevity
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-semibold tracking-widest text-stone-600 mb-4">
-                SUSTAINABILITY
-              </div>
-              <p className="text-lg font-light text-stone-700">
-                Ethical production and eco-friendly packaging throughout
-              </p>
-            </div>
-            <div className="space-y-2">
-              <div className="text-sm font-semibold tracking-widest text-stone-600 mb-4">
-                DESIGN
-              </div>
-              <p className="text-lg font-light text-stone-700">
-                Minimalist aesthetics that transcend seasonal trends
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24 px-6 bg-white border-t border-stone-200">
         <div className="max-w-2xl mx-auto text-center space-y-8">
           <h2 className="text-4xl font-light tracking-tight">
             Discover the Collection
@@ -242,7 +232,7 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-stone-900 text-stone-100 py-16 px-6">
+      <footer className="bg-black text-stone-100 py-16 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-4 gap-12 mb-12 pb-12 border-b border-stone-800">
             <div>
@@ -278,7 +268,7 @@ export default function Home() {
             </div>
           </div>
           <div className="text-center text-stone-400 font-light text-sm">
-            <p>&copy; 2024 FIBER. All rights reserved.</p>
+            <p>&copy; 2025 NYOS All rights reserved.</p>
           </div>
         </div>
       </footer>
