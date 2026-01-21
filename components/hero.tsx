@@ -338,15 +338,11 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
       {/* Background Layer (z-0) - Plain black */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-[#000000]" />
+        <img src="/fog.jpg" alt="" className="absolute inset-0 bottom-0 w-full object-cover" />
       </div>
 
       {/* T-shirt Model Layer (z-10) */}
       <div ref={containerRef} className="relative w-full h-full z-10 cursor-grab active:cursor-grabbing" />
-
-      {/* Optional overlay gradient for depth (kept subtle, no brand text) */}
-      <div className="absolute inset-0 z-20 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-t from-[#000000]/20 via-transparent to-[#000000]/10" />
-      </div>
     </div>
   )
 }

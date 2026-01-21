@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { ShoppingCart, ChevronRight } from 'lucide-react'
 import dynamic from 'next/dynamic'
-const CurtainHeroWrapper = dynamic(() => import('@/components/curtain-hero-wrapper'), {
+const CurtainHeroWrapper = dynamic(() => import('@/components/curtain'), {
   ssr: false,
 })
 

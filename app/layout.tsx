@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { CartProvider } from '@/lib/cart-context'
- import { CurtainScrollProvider } from '@/lib/curtain-scroll-context'
+ import { CurtainScrollProvider } from '@/lib/curtainScroll'
 import './globals.css'
 
 const geist = Geist({ 

@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { useCurtainScroll } from '@/lib/curtain-scroll-context'
-import Hero3DViewer from './hero-3d-viewer'
+import { useCurtainScroll } from '@/lib/curtainScroll'
+import Hero3DViewer from './hero'
 
 export default function CurtainHeroWrapper() {
   const { scrollProgress } = useCurtainScroll()
@@ -10,6 +10,7 @@ export default function CurtainHeroWrapper() {
 
   // Calculate curtain opening percentage (0 to 100)
   const openPercentage = scrollProgress * 100
+  const showScrollIndicator = scrollProgress <= 0.01
 
   return (
     <div ref={containerRef} className="relative w-full h-[300vh]">
@@ -40,7 +41,10 @@ export default function CurtainHeroWrapper() {
           }
         }
       `}</style>
-      <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 pointer-events-none z-[199999]">
+      <div
+        className="absolute bottom-12 left-1/2 transform -translate-x-1/2 pointer-events-none z-[199999] transition-opacity duration-300"
+        style={{ opacity: showScrollIndicator ? 1 : 0 }}
+      >
         <div className="relative w-8 h-12 border-2 border-black rounded-full flex justify-center">
           <div
             className="w-1.5 h-1.5 bg-black rounded-full"
