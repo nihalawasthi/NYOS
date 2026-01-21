@@ -337,8 +337,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
     <div className="relative w-full h-full overflow-hidden">
       {/* Background Layer (z-0) - Plain black */}
       <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-[#000000]" />
-        <img src="/fog.jpg" alt="" className="absolute inset-0 bottom-0 w-full object-cover" />
+        <div className="absolute inset-0 bg-[#DCDCDC]" />
       </div>
 
       {/* T-shirt Model Layer (z-10) */}

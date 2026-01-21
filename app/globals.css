@@ -181,3 +181,9 @@
     animation: rotate-slow 8s linear infinite;
   }
 }
+
+section{
+  min-height: 100vh;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
