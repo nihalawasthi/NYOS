@@ -25,8 +25,8 @@ export function CurtainScrollProvider({ children }: { children: React.ReactNode 
       const scrollY = window.scrollY
       const viewportHeight = window.innerHeight
       
-      // Animation happens over 3 viewports to sync curtains, tshirt, and page scroll
-      const animationHeight = viewportHeight * 3
+      // Animation happens over 1.5 viewports to sync curtains, tshirt, and page scroll
+      const animationHeight = viewportHeight * 1.5
       
       if (scrollY < animationHeight) {
         const progress = Math.min(scrollY / animationHeight, 1)

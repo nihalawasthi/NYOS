@@ -65,8 +65,8 @@ export default function CurtainHeroWrapper() {
           {/* Texture overlay */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent" />
           {/* Blob accents */}
-          <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#642D80] rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
-          {/* <div className="absolute bottom-6 left-1/3 w-48 h-48 bg-[#642D80] rounded-full mix-blend-multiply filter blur-3xl opacity-40" /> */}
+          <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#4a4a4a] rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
+          {/* <div className="absolute bottom-6 left-1/3 w-48 h-48 bg-[#4a4a4a] rounded-full mix-blend-multiply filter blur-3xl opacity-40" /> */}
           {/* NY Image on Left Curtain */}
           <div className="absolute inset-y-0 right-0 flex items-center pr-1 z-20">
             <div className="flex flex-col text-right items-end overflow-hidden">
@@ -88,8 +88,8 @@ export default function CurtainHeroWrapper() {
           {/* Texture overlay */}
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/20 via-transparent to-transparent" />
           {/* Blob accents */}
-          <div className="absolute -bottom-16 -right-10 w-64 h-64 bg-[#642D80] rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
-          <div className="absolute top-8 right-1/3 w-48 h-48 bg-[#642D80] rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
+          <div className="absolute -bottom-16 -right-10 w-64 h-64 bg-[#4a4a4a] rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
+          <div className="absolute top-8 right-1/3 w-48 h-48 bg-[#4a4a4a] rounded-full mix-blend-multiply filter blur-3xl opacity-40" />
           {/* OS Image on Right Curtain */}
           <div className="absolute inset-y-0 left-0 flex items-center pl-1 z-20">
             <div className="flex flex-col text-left items-start">
