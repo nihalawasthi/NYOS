@@ -3,7 +3,8 @@ import type { Metadata, Viewport } from 'next'
 import { Geist } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { CartProvider } from '@/lib/cart-context'
- import { CurtainScrollProvider } from '@/lib/curtainScroll'
+import { WishlistProvider } from '@/lib/wishlist-context'
+import { CurtainScrollProvider } from '@/lib/curtainScroll'
 import './globals.css'
 
 const geist = Geist({ 
@@ -27,7 +28,7 @@ export const metadata: Metadata = {
         media: '(prefers-color-scheme: dark)',
       },
       {
-        url: '/icon.svg',
+        url: '/icon.png',
         type: 'image/svg+xml',
       },
     ],
@@ -38,7 +39,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 5,
+  minimumScale: 1,
+  userScalable: true,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -48,11 +52,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={geist.variable}>
+      <head>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" />
+      </head>
       <body className={`font-sans antialiased`}>
           <CurtainScrollProvider>
         <CartProvider>
-          {children}
-          <Analytics />
+          <WishlistProvider>
+            {children}
+            <Analytics />
+          </WishlistProvider>
         </CartProvider>
         </CurtainScrollProvider>
       </body>

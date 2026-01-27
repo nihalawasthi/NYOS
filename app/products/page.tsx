@@ -1,95 +1,43 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Search, X } from 'lucide-react'
 import Link from 'next/link'
-import { ShoppingCart } from 'lucide-react'
 import { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { getProducts } from '@/lib/api'
+import { Navigation } from '@/components/navigation'
+import { ProductCard } from '@/components/ProductCard'
+import type { Product } from '@/lib/api'
 
 const CATEGORIES = ['All', 'Essential', 'Premium', 'Limited', 'Seasonal']
 const PRICE_RANGES = [
-  { label: 'Under $50', min: 0, max: 50 },
-  { label: '$50 - $100', min: 50, max: 100 },
-  { label: '$100+', min: 100, max: Infinity },
-]
-
-const PRODUCTS = [
-  {
-    id: 1,
-    name: 'Essential Minimalist',
-    price: 89,
-    category: 'Essential',
-    colors: ['#1a1a1a', '#ffffff', '#e8dfd6'],
-    description: 'Pure elegance in simplicity',
-  },
-  {
-    id: 2,
-    name: 'Drift Series',
-    price: 99,
-    category: 'Premium',
-    colors: ['#4a4a4a', '#8b8680', '#d4cdc5'],
-    description: 'Soft, refined tones',
-  },
-  {
-    id: 3,
-    name: 'Canvas Premium',
-    price: 109,
-    category: 'Premium',
-    colors: ['#2c2c2c', '#666666', '#a8a29d'],
-    description: 'Luxury redefined',
-  },
-  {
-    id: 4,
-    name: 'Neutral Standard',
-    price: 79,
-    category: 'Essential',
-    colors: ['#f0ede8', '#999999', '#5a5a5a'],
-    description: 'Timeless versatility',
-  },
-  {
-    id: 5,
-    name: 'Limited Archive',
-    price: 129,
-    category: 'Limited',
-    colors: ['#1a1a1a', '#8b7355', '#d4af37'],
-    description: 'Collector\'s edition',
-  },
-  {
-    id: 6,
-    name: 'Seasonal Capsule',
-    price: 84,
-    category: 'Seasonal',
-    colors: ['#c4a584', '#a89f97', '#8b8680'],
-    description: 'Season-inspired collection',
-  },
-  {
-    id: 7,
-    name: 'Studio Classic',
-    price: 89,
-    category: 'Essential',
-    colors: ['#2a2a2a', '#666666', '#cccccc'],
-    description: 'Artist studio edition',
-  },
-  {
-    id: 8,
-    name: 'Monochrome Elite',
-    price: 119,
-    category: 'Premium',
-    colors: ['#000000', '#808080', '#ffffff'],
-    description: 'Sophisticated palette',
-  },
+  { label: '₹0 - ₹500', min: 0, max: 500 },
+  { label: '₹500 - ₹1000', min: 500, max: 1000 },
+  { label: '₹1000+', min: 1000, max: Infinity },
 ]
 
 function ProductsContent() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
-  const [selectedPriceRange, setSelectedPriceRange] = useState(null)
+  const [selectedPriceRange, setSelectedPriceRange] = useState<any>(null)
   const [showFilters, setShowFilters] = useState(false)
   const searchParams = useSearchParams()
 
+  useEffect(() => {
+    const loadProducts = async () => {
+      setLoading(true)
+      const data = await getProducts()
+      setProducts(data)
+      setLoading(false)
+    }
+    loadProducts()
+  }, [])
+
   const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((product) => {
+    return products.filter((product) => {
       const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase()) ||
                            product.description.toLowerCase().includes(search.toLowerCase())
       const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory
@@ -98,26 +46,12 @@ function ProductsContent() {
       
       return matchesSearch && matchesCategory && matchesPrice
     })
-  }, [search, selectedCategory, selectedPriceRange])
+  }, [products, search, selectedCategory, selectedPriceRange])
 
   return (
     <main className="bg-stone-50 text-stone-900 min-h-screen">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-stone-50/95 backdrop-blur border-b border-stone-200">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="text-xl font-light tracking-tight">
-            <span className="font-semibold">NYOS</span>
-          </Link>
-          <div className="flex items-center gap-8">
-            <Link href="/products" className="text-sm font-light tracking-wide text-stone-600">
-              COLLECTION
-            </Link>
-            <Link href="/cart" className="relative">
-              <ShoppingCart className="w-5 h-5" />
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navigation />
 
       {/* Header */}
       <div className="pt-24 pb-12 px-6 border-b border-stone-200">
@@ -207,43 +141,9 @@ function ProductsContent() {
       {/* Products Grid */}
       <div className="max-w-7xl mx-auto px-6 py-16">
         {filteredProducts.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 justify-items-center">
             {filteredProducts.map((product) => (
-              <Link
-                key={product.id}
-                href={`/products/${product.id}`}
-                className="group"
-              >
-                <div className="bg-stone-100 rounded-sm overflow-hidden mb-4 aspect-square flex items-center justify-center hover:bg-stone-200 transition-colors">
-                  <div className="w-full h-full flex items-center justify-center text-stone-500 font-light text-sm">
-                    <img 
-                      src={`/placeholder.svg?height=400&width=400`}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <h3 className="font-light text-sm tracking-wide group-hover:text-stone-600 transition-colors">
-                    {product.name}
-                  </h3>
-                  <p className="text-xs text-stone-600 font-light">
-                    {product.description}
-                  </p>
-                  <div className="flex gap-2 pt-2">
-                    {product.colors.map((color) => (
-                      <div
-                        key={color}
-                        className="w-4 h-4 rounded-sm border border-stone-300"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                  <div className="text-lg font-light pt-2">
-                    ${product.price}
-                  </div>
-                </div>
-              </Link>
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (

@@ -1,76 +1,31 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Heart, Share2, ChevronLeft, Check } from 'lucide-react'
+import { Heart, Share2, ChevronLeft, Check, Trash2 } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
-
-const PRODUCTS = [
-  {
-    id: 1,
-    name: 'Essential Minimalist',
-    price: 89,
-    category: 'Essential',
-    colors: ['#1a1a1a', '#ffffff', '#e8dfd6'],
-    description: 'Pure elegance in simplicity',
-    fullDescription: 'The foundation of any wardrobe. Crafted from premium organic cotton with precision stitching. Timeless design that transcends seasonal trends.',
-    sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-    stock: 45,
-    rating: 4.9,
-    reviews: 234,
-    features: ['100% Organic Cotton', 'Ethically Produced', 'Premium Stitching', 'Preshrunk'],
-  },
-  {
-    id: 2,
-    name: 'Drift Series',
-    price: 99,
-    category: 'Premium',
-    colors: ['#4a4a4a', '#8b8680', '#d4cdc5'],
-    description: 'Soft, refined tones',
-    fullDescription: 'Elevated comfort meets sophisticated design. Our Drift Series uses premium cotton blend with enhanced durability. Perfect for those who appreciate subtlety.',
-    sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-    stock: 28,
-    rating: 4.8,
-    reviews: 189,
-    features: ['Premium Cotton Blend', 'Reinforced Seams', 'Fade Resistant', 'Expert Crafted'],
-  },
-  {
-    id: 3,
-    name: 'Canvas Premium',
-    price: 109,
-    category: 'Premium',
-    colors: ['#2c2c2c', '#666666', '#a8a29d'],
-    description: 'Luxury redefined',
-    fullDescription: 'Our most luxurious offering. Constructed from the finest certified organic cotton with professional-grade finishing. Limited production.',
-    sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-    stock: 12,
-    rating: 4.95,
-    reviews: 156,
-    features: ['Certified Organic', 'Limited Production', 'Museum Quality', 'Lifetime Warranty'],
-  },
-  {
-    id: 4,
-    name: 'Neutral Standard',
-    price: 79,
-    category: 'Essential',
-    colors: ['#f0ede8', '#999999', '#5a5a5a'],
-    description: 'Timeless versatility',
-    fullDescription: 'The essential everyday piece. High-quality construction meets accessible pricing. Designed for maximum versatility.',
-    sizes: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
-    stock: 67,
-    rating: 4.7,
-    reviews: 312,
-    features: ['Quality Cotton', 'Easy Care', 'Great Value', 'Versatile Design'],
-  },
-]
+import { useWishlist } from '@/lib/wishlist-context'
+import { getProduct, getProducts, getProductReviews, createReview, deleteReview } from '@/lib/api'
+import { Navigation } from '@/components/navigation'
+import type { Product } from '@/lib/api'
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const [isLoading, setIsLoading] = React.useState(true)
   const [id, setId] = React.useState<string | null>(null)
+  const [product, setProduct] = useState<Product | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [reviews, setReviews] = useState<any[]>([])
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewComment, setReviewComment] = useState('')
+  const [submittingReview, setSubmittingReview] = useState(false)
 
   React.useEffect(() => {
-    params.then((p) => {
+    params.then(async (p) => {
       setId(p.id)
+      const [prod, prods, revs] = await Promise.all([getProduct(Number(p.id)), getProducts(), getProductReviews(Number(p.id))])
+      setProduct(prod)
+      setProducts(prods)
+      setReviews(revs)
       setIsLoading(false)
     })
   }, [params])
@@ -80,15 +35,46 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     size: 'M',
     quantity: 1,
   })
-  const [isWishlisted, setIsWishlisted] = useState(false)
-  const [showAddedMessage, setShowAddedMessage] = useState(false)
   const { addItem } = useCart()
+  const { addItem: addToWishlist, removeItem: removeFromWishlist, isInWishlist } = useWishlist()
+  const [showAddedMessage, setShowAddedMessage] = useState(false)
+
+  // Initialize color when product is loaded
+  useEffect(() => {
+    if (product && !customization.color) {
+      setCustomization(prev => ({
+        ...prev,
+        color: product.colors[0]
+      }))
+    }
+  }, [product])
+
+  const handleAddReview = async () => {
+    if (!product || !reviewComment.trim()) return
+    
+    setSubmittingReview(true)
+    const user = localStorage.getItem('user')
+    if (user) {
+      const userData = JSON.parse(user)
+      const newReview = await createReview(userData.id, product.id, reviewRating, reviewComment)
+      if (newReview) {
+        setReviews([newReview, ...reviews])
+        setReviewComment('')
+        setReviewRating(5)
+      }
+    }
+    setSubmittingReview(false)
+  }
+
+  const handleDeleteReview = async (reviewId: number) => {
+    if (await deleteReview(reviewId)) {
+      setReviews(reviews.filter(r => r.id !== reviewId))
+    }
+  }
 
   if (isLoading || !id) {
     return <div>Loading...</div>
   }
-
-  const product = PRODUCTS.find((p) => p.id === Number(id))
 
   if (!product) {
     return (
@@ -104,6 +90,10 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   }
 
   const handleAddToCart = () => {
+    if (!customization.color) {
+      alert('Please select a color')
+      return
+    }
     addItem({
       id: product.id,
       name: product.name,
@@ -121,18 +111,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   return (
     <main className="bg-stone-50 text-stone-900">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-stone-50/95 backdrop-blur border-b border-stone-200">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="text-xl font-light tracking-tight">
-            <span className="font-semibold">NYOS</span>
-          </Link>
-          <div className="flex items-center gap-8">
-            <Link href="/products" className="text-sm font-light tracking-wide hover:text-stone-600 transition-colors">
-              COLLECTION
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navigation />
 
       {/* Breadcrumb */}
       <div className="pt-20 px-6 border-b border-stone-200">
@@ -196,10 +175,10 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <button
-                    onClick={() => setIsWishlisted(!isWishlisted)}
+                    onClick={() => isInWishlist(product.id) ? removeFromWishlist(product.id) : addToWishlist(product.id)}
                     className="p-2 hover:bg-stone-100 rounded-sm transition-colors"
                   >
-                    <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-red-500 text-red-500' : 'text-stone-600'}`} />
+                    <Heart className={`w-5 h-5 ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : 'text-stone-600'}`} />
                   </button>
                   <button className="p-2 hover:bg-stone-100 rounded-sm transition-colors">
                     <Share2 className="w-5 h-5 text-stone-600" />
@@ -215,7 +194,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
               {/* Price */}
               <div className="text-3xl font-light mb-8">
-                ${product.price}
+                ₹{product.price}
               </div>
             </div>
 
@@ -302,18 +281,99 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           </div>
         </div>
 
+        {/* Reviews Section */}
+        <div className="mt-24 pt-12 border-t border-stone-200">
+          <h2 className="text-3xl font-light tracking-tight mb-8">Reviews</h2>
+          
+          {/* Add Review Form */}
+          <div className="mb-12 bg-stone-50 p-6 rounded-sm">
+            <h3 className="font-light tracking-wide mb-4">Leave a Review</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-light mb-2">Rating</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      onClick={() => setReviewRating(star)}
+                      className={`text-3xl transition-colors ${star <= reviewRating ? 'text-yellow-500' : 'text-stone-300'}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-light mb-2">Comment</label>
+                <textarea
+                  value={reviewComment}
+                  onChange={(e) => setReviewComment(e.target.value)}
+                  placeholder="Share your thoughts..."
+                  className="w-full px-3 py-2 border border-stone-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-stone-900 font-light"
+                  rows={4}
+                />
+              </div>
+              <button
+                onClick={handleAddReview}
+                disabled={submittingReview || !reviewComment.trim()}
+                className="bg-stone-900 text-white px-6 py-2 font-light rounded-sm hover:bg-stone-800 disabled:opacity-50"
+              >
+                {submittingReview ? 'Submitting...' : 'Submit Review'}
+              </button>
+            </div>
+          </div>
+
+          {/* Reviews List */}
+          <div className="space-y-6">
+            {reviews.length === 0 ? (
+              <p className="text-stone-600 font-light">No reviews yet. Be the first to review!</p>
+            ) : (
+              reviews.map(review => (
+                <div key={review.id} className="border-b border-stone-200 pb-6">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-light">{review.User?.name || 'Anonymous'}</p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          {[...Array(5)].map((_, i) => (
+                            <span key={i} className={i < review.rating ? 'text-yellow-500' : 'text-stone-300'}>
+                              ★
+                            </span>
+                          ))}
+                        </div>
+                        <span className="text-xs text-stone-500">{new Date(review.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteReview(review.id)}
+                      className="text-stone-400 hover:text-red-600 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <p className="text-stone-700 font-light">{review.comment}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         {/* Related Products */}
         <div className="mt-24 pt-12 border-t border-stone-200">
           <h2 className="text-3xl font-light tracking-tight mb-12">Related Products</h2>
           <div className="grid md:grid-cols-3 gap-6">
-            {PRODUCTS.filter((p) => p.id !== product.id).slice(0, 3).map((relatedProduct) => (
+            {products.filter((p) => p.id !== product.id).slice(0, 3).map((relatedProduct) => (
               <Link
                 key={relatedProduct.id}
                 href={`/products/${relatedProduct.id}`}
                 className="group"
               >
-                <div className="bg-stone-100 rounded-sm aspect-square mb-4 group-hover:bg-stone-200 transition-colors flex items-center justify-center">
-                  <Product3D color={relatedProduct.colors[0]} />
+                <div className="bg-stone-100 rounded-sm aspect-square mb-4 group-hover:bg-stone-200 transition-colors flex items-center justify-center overflow-hidden">
+                  <img 
+                    src={`/placeholder.svg?height=400&width=400`}
+                    alt={relatedProduct.name}
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <h3 className="font-light tracking-wide group-hover:text-stone-600 transition-colors">
                   {relatedProduct.name}
@@ -321,7 +381,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 <p className="text-sm text-stone-600 font-light mb-3">
                   {relatedProduct.description}
                 </p>
-                <div className="text-lg font-light">${relatedProduct.price}</div>
+                <div className="text-lg font-light">₹{relatedProduct.price}</div>
               </Link>
             ))}
           </div>

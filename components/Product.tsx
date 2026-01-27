@@ -1,51 +1,55 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronRight } from 'lucide-react'
-
-const PRODUCTS = [
-    {
-        id: 1,
-        name: 'Essential Minimalist',
-        price: 899,
-        colors: ['#1a1a1a', '#ffffff', '#e8dfd6'],
-        description: 'Pure elegance in simplicity',
-    },
-    {
-        id: 2,
-        name: 'Drift Series',
-        price: 999,
-        colors: ['#4a4a4a', '#8b8680', '#d4cdc5'],
-        description: 'Soft, refined tones',
-    },
-    {
-        id: 3,
-        name: 'Canvas Premium',
-        price: 1099,
-        colors: ['#2c2c2c', '#666666', '#a8a29d'],
-        description: 'Luxury redefined',
-    },
-    {
-        id: 4,
-        name: 'Neutral Standard',
-        price: 799,
-        colors: ['#f0ede8', '#999999', '#5a5a5a'],
-        description: 'Timeless versatility',
-    },
-]
+import { ChevronRight, Heart } from 'lucide-react'
+import { getProducts } from '@/lib/api'
+import { useCart } from '@/lib/cart-context'
+import { useWishlist } from '@/lib/wishlist-context'
+import type { Product as ProductType } from '@/lib/api'
 
 export default function ProductSection() {
-    const [selectedProduct, setSelectedProduct] = useState(PRODUCTS[0])
-    const [selectedColor, setSelectedColor] = useState(PRODUCTS[0].colors[0])
-    const [cartCount, setCartCount] = useState(0)
+    const { addItem } = useCart()
+    const { addItem: addToWishlist, removeItem: removeFromWishlist, isInWishlist } = useWishlist()
+    const [products, setProducts] = useState<ProductType[]>([])
+    const [selectedProduct, setSelectedProduct] = useState<ProductType | null>(null)
+    const [selectedColor, setSelectedColor] = useState('')
     const [showNotification, setShowNotification] = useState(false)
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        const loadProducts = async () => {
+            setLoading(true)
+            const data = await getProducts()
+            if (data.length > 0) {
+                setProducts(data)
+                setSelectedProduct(data[0])
+                setSelectedColor(data[0].colors[0])
+            }
+            setLoading(false)
+        }
+        loadProducts()
+    }, [])
 
     const handleAddToCart = () => {
-        setCartCount(prev => prev + 1)
+        if (!selectedProduct) return
+        
+        addItem({
+            id: selectedProduct.id,
+            name: selectedProduct.name,
+            price: selectedProduct.price,
+            color: selectedColor,
+            size: 'M',
+            quantity: 1,
+        })
         setShowNotification(true)
         setTimeout(() => setShowNotification(false), 2000)
     }
+
+    if (loading || !selectedProduct) {
+        return <section className="py-24 px-6 bg-white border-b border-stone-200 relative z-0 text-center text-stone-500 font-light">Loading...</section>
+    }
+
     return (
         <section className="py-24 px-6 bg-white border-b border-stone-200 relative z-0">
             <div className="max-w-7xl mx-auto">
@@ -54,7 +58,7 @@ export default function ProductSection() {
                     <div className="animate-fade-in-up">
                         <div className="bg-stone-100 rounded-sm overflow-hidden h-96 mb-8 flex items-center justify-center">
                             <img
-                                src={`/Tshirts/tshirt1.png?height=400&width=400`}
+                                src={selectedProduct.image || `/placeholder.svg?height=400&width=400`}
                                 alt={selectedProduct.name}
                                 className="w-full h-full object-cover"
                             />
@@ -97,6 +101,25 @@ export default function ProductSection() {
                         >
                             ADD TO CART
                         </button>
+                        <button
+                            onClick={() => {
+                                if (selectedProduct) {
+                                    if (isInWishlist(selectedProduct.id)) {
+                                        removeFromWishlist(selectedProduct.id)
+                                    } else {
+                                        addToWishlist(selectedProduct.id)
+                                    }
+                                }
+                            }}
+                            className={`w-full py-3 px-6 font-light tracking-wide transition-all border-2 mt-3 ${
+                                selectedProduct && isInWishlist(selectedProduct.id)
+                                    ? 'border-red-400 bg-red-50 text-red-600 hover:bg-red-100'
+                                    : 'border-stone-300 text-stone-600 hover:border-stone-400'
+                            }`}
+                        >
+                            <Heart className="inline mr-2 w-4 h-4" fill={selectedProduct && isInWishlist(selectedProduct.id) ? 'currentColor' : 'none'} />
+                            {selectedProduct && isInWishlist(selectedProduct.id) ? 'REMOVE FROM WISHLIST' : 'ADD TO WISHLIST'}
+                        </button>
 
                         {showNotification && (
                             <div className="mt-4 p-3 bg-stone-100 border border-stone-300 text-sm text-stone-700 font-light animate-fade-in-up">
@@ -107,7 +130,7 @@ export default function ProductSection() {
 
                     {/* Product Selection Grid */}
                     <div className="grid grid-cols-2 gap-4">
-                        {PRODUCTS.map((product) => (
+                        {products.map((product) => (
                             <button
                                 key={product.id}
                                 onClick={() => {
