@@ -7,6 +7,8 @@ import { Navigation } from '@/components/navigation'
 import type { Product, Order } from '@/lib/api'
 import { BarChart3, ShoppingBag, Package, Plus, Edit, Trash2, X } from 'lucide-react'
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<Order[]>([])
@@ -94,16 +96,19 @@ export default function AdminPage() {
     if (!confirm('Are you sure you want to delete this product?')) return
 
     try {
-      const res = await fetch(`http://localhost:5000/api/products/${id}`, {
+      const res = await fetch(`${API_BASE}/products/${id}`, {
         method: 'DELETE',
       })
+      const data = await res.json()
       if (res.ok) {
         setProducts(products.filter((p) => p.id !== id))
         alert('Product deleted successfully')
+      } else {
+        alert(`Failed to delete product: ${data.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error deleting product:', error)
-      alert('Failed to delete product')
+      alert(`Failed to delete product: ${error instanceof Error ? error.message : 'Network error - backend server may not be running'}`)
     }
   }
 
@@ -127,8 +132,8 @@ export default function AdminPage() {
 
     try {
       const url = editingProduct
-        ? `http://localhost:5000/api/products/${editingProduct.id}`
-        : 'http://localhost:5000/api/products'
+        ? `${API_BASE}/products/${editingProduct.id}`
+        : `${API_BASE}/products`
       const method = editingProduct ? 'PUT' : 'POST'
 
       const res = await fetch(url, {
@@ -157,7 +162,7 @@ export default function AdminPage() {
     if (!confirm('Approve this order? Stock will be deducted.')) return
 
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/approve`, {
+      const res = await fetch(`${API_BASE}/orders/${orderId}/approve`, {
         method: 'POST',
       })
 
@@ -183,7 +188,7 @@ export default function AdminPage() {
     if (reason === null) return // User cancelled
 
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/reject`, {
+      const res = await fetch(`${API_BASE}/orders/${orderId}/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
@@ -202,7 +207,7 @@ export default function AdminPage() {
 
   const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      const res = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      const res = await fetch(`${API_BASE}/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
