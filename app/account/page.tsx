@@ -134,15 +134,28 @@ export default function AccountPage() {
                           <td className="py-3 px-4 text-sm font-light">
                             {new Date(order.createdAt).toLocaleDateString()}
                           </td>
-                          <td className="py-3 px-4 text-sm font-light">₹{order.totalAmount.toFixed(0)}</td>
+                          <td className="py-3 px-4 text-sm font-light">₹{Number(order.totalAmount).toFixed(0)}</td>
                           <td className="py-3 px-4 text-sm font-light">
-                            <span className="px-2 py-1 bg-blue-100 rounded-sm text-xs capitalize text-blue-700">
+                            <span className={`px-2 py-1 rounded-sm text-xs capitalize ${
+                              order.status === 'pending' ? 'bg-orange-100 text-orange-700' :
+                              order.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                              order.status === 'processing' ? 'bg-purple-100 text-purple-700' :
+                              order.status === 'dispatched' ? 'bg-indigo-100 text-indigo-700' :
+                              order.status === 'shipped' ? 'bg-cyan-100 text-cyan-700' :
+                              order.status === 'delivered' ? 'bg-green-100 text-green-700' :
+                              order.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                              order.status === 'cancelled' ? 'bg-gray-100 text-gray-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
                               {order.status}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm font-light">
                             <span className={`px-2 py-1 rounded-sm text-xs capitalize ${
-                              order.paymentStatus === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                              order.paymentStatus === 'completed' ? 'bg-green-100 text-green-700' : 
+                              order.paymentStatus === 'failed' ? 'bg-red-100 text-red-700' :
+                              order.paymentStatus === 'refunded' ? 'bg-purple-100 text-purple-700' :
+                              'bg-yellow-100 text-yellow-700'
                             }`}>
                               {order.paymentStatus}
                             </span>

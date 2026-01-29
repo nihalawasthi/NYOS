@@ -1,17 +1,41 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react'
 import { useCart } from '@/lib/cart-context'
 import { Navigation } from '@/components/navigation'
+import { getProducts } from '@/lib/api'
 
 export default function CartPage() {
+  const router = useRouter()
   const { items, removeItem, updateQuantity, clearCart, total, itemCount } = useCart()
   const [isProcessing, setIsProcessing] = useState(false)
+  const [productStocks, setProductStocks] = useState<Record<number, number>>({})
+
+  // Fetch stock information for cart items
+  useEffect(() => {
+    const fetchStocks = async () => {
+      try {
+        const products = await getProducts()
+        const stocks: Record<number, number> = {}
+        products.forEach(p => {
+          stocks[p.id] = p.stock
+        })
+        setProductStocks(stocks)
+      } catch (error) {
+        console.error('Error fetching stock:', error)
+      }
+    }
+    
+    if (items.length > 0) {
+      fetchStocks()
+    }
+  }, [items.length])
 
   const handleCheckout = () => {
-    window.location.href = '/checkout'
+    router.push('/checkout')
   }
 
   if (items.length === 0) {
@@ -54,7 +78,11 @@ export default function CartPage() {
         <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-6">
-            {items.map((item) => (
+            {items.map((item) => {
+              const availableStock = productStocks[item.id] || item.stock || 999
+              const isAtMaxStock = item.quantity >= availableStock
+              
+              return (
               <div
                 key={`${item.id}-${item.size}-${item.color}`}
                 className="flex flex-col sm:flex-row gap-4 sm:gap-6 pb-6 border-b border-stone-200 animate-fade-in-up"
@@ -79,24 +107,41 @@ export default function CartPage() {
                           style={{ backgroundColor: item.color }}
                         />
                       </span>
+                      {availableStock < 999 && (
+                        <span className="text-stone-500">Stock: {availableStock}</span>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex items-center gap-3 border border-stone-300 rounded-sm p-1 w-fit">
-                      <button
-                        onClick={() => updateQuantity(item.id, item.size, item.color, item.quantity - 1)}
-                        className="p-1 hover:bg-stone-100 transition-colors"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="w-8 text-center font-light">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.id, item.size, item.color, item.quantity + 1)}
-                        className="p-1 hover:bg-stone-100 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-3 border border-stone-300 rounded-sm p-1 w-fit">
+                        <button
+                          onClick={() => updateQuantity(item.id, item.size, item.color, item.quantity - 1)}
+                          className="p-1 hover:bg-stone-100 transition-colors"
+                        >
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <span className="w-8 text-center font-light">{item.quantity}</span>
+                        <button
+                          onClick={() => {
+                            if (!isAtMaxStock) {
+                              updateQuantity(item.id, item.size, item.color, item.quantity + 1)
+                            }
+                          }}
+                          disabled={isAtMaxStock}
+                          className={`p-1 transition-colors ${
+                            isAtMaxStock 
+                              ? 'opacity-50 cursor-not-allowed' 
+                              : 'hover:bg-stone-100'
+                          }`}
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {isAtMaxStock && (
+                        <span className="text-xs text-orange-600">Max stock reached</span>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-4">
@@ -115,7 +160,7 @@ export default function CartPage() {
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
 
           {/* Order Summary */}

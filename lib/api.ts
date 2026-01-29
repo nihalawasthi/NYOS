@@ -283,3 +283,84 @@ export async function removeFromWishlist(userId: number, productId: number): Pro
     return false;
   }
 }
+
+// Payment API - Razorpay Integration
+export async function createRazorpayOrder(
+  amount: number,
+  orderId?: string,
+  customerEmail?: string,
+  customerName?: string
+): Promise<{ orderId: string; amount: number; currency: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/payment/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount,
+        orderId: orderId || 'N/A',
+        customerEmail: customerEmail || 'N/A',
+        customerName: customerName || 'N/A',
+      }),
+    });
+    if (!res.ok) throw new Error('Failed to create order');
+    const result = await res.json();
+    return result.data;
+  } catch (error) {
+    console.error('Error creating Razorpay order:', error);
+    return null;
+  }
+}
+
+export async function verifyRazorpayPayment(
+  razorpay_order_id: string,
+  razorpay_payment_id: string,
+  razorpay_signature: string,
+  orderId?: string
+): Promise<{ status: string; message: string } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/payment/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+        orderId,
+      }),
+    });
+    if (!res.ok) throw new Error('Payment verification failed');
+    const result = await res.json();
+    return result;
+  } catch (error) {
+    console.error('Error verifying payment:', error);
+    return null;
+  }
+}
+
+export async function processCashOnDelivery(orderId: string): Promise<{ success: boolean; data: any } | null> {
+  try {
+    const res = await fetch(`${API_BASE}/payment/cod`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId }),
+    });
+    if (!res.ok) throw new Error('Failed to process COD');
+    const result = await res.json();
+    return result;
+  } catch (error) {
+    console.error('Error processing COD:', error);
+    return null;
+  }
+}
+
+export async function getPaymentStatus(orderId: string): Promise<any | null> {
+  try {
+    const res = await fetch(`${API_BASE}/payment/status/${orderId}`);
+    if (!res.ok) throw new Error('Failed to get payment status');
+    const result = await res.json();
+    return result.data;
+  } catch (error) {
+    console.error('Error getting payment status:', error);
+    return null;
+  }
+}

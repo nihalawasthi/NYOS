@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react'
 
 export interface CartItem {
   id: number
@@ -9,6 +9,7 @@ export interface CartItem {
   color: string
   size: string
   quantity: number
+  stock?: number
 }
 
 interface CartContextType {
@@ -23,9 +24,57 @@ interface CartContextType {
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
+const CART_STORAGE_KEY = 'nyos_cart'
+const CART_EXPIRY_KEY = 'nyos_cart_expiry'
+const CART_EXPIRY_DAYS = 7
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
+  const [isHydrated, setIsHydrated] = useState(false)
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const savedCart = localStorage.getItem(CART_STORAGE_KEY)
+    const expiryDate = localStorage.getItem(CART_EXPIRY_KEY)
+
+    if (savedCart && expiryDate) {
+      // Check if cart has expired
+      if (new Date(expiryDate) > new Date()) {
+        try {
+          const parsedCart = JSON.parse(savedCart)
+          setItems(parsedCart)
+        } catch (error) {
+          console.error('Failed to parse saved cart:', error)
+          localStorage.removeItem(CART_STORAGE_KEY)
+          localStorage.removeItem(CART_EXPIRY_KEY)
+        }
+      } else {
+        // Cart has expired, clear it
+        localStorage.removeItem(CART_STORAGE_KEY)
+        localStorage.removeItem(CART_EXPIRY_KEY)
+      }
+    }
+
+    setIsHydrated(true)
+  }, [])
+
+  // Save cart to localStorage whenever items change
+  useEffect(() => {
+    if (isHydrated) {
+      if (items.length > 0) {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
+        
+        // Set expiry date to 7 days from now
+        const expiryDate = new Date()
+        expiryDate.setDate(expiryDate.getDate() + CART_EXPIRY_DAYS)
+        localStorage.setItem(CART_EXPIRY_KEY, expiryDate.toISOString())
+      } else {
+        // Clear storage if cart is empty
+        localStorage.removeItem(CART_STORAGE_KEY)
+        localStorage.removeItem(CART_EXPIRY_KEY)
+      }
+    }
+  }, [items, isHydrated])
 
   const addItem = useCallback((item: CartItem) => {
     setItems((prevItems) => {
@@ -34,11 +83,24 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       )
 
       if (existingItem) {
-        return prevItems.map((i) =>
-          i.id === item.id && i.size === item.size && i.color === item.color
-            ? { ...i, quantity: i.quantity + item.quantity }
-            : i
-        )
+        return prevItems.map((i) => {
+          if (i.id === item.id && i.size === item.size && i.color === item.color) {
+            const newQuantity = i.quantity + item.quantity
+            // Check stock limit if stock information is available
+            if (item.stock !== undefined && newQuantity > item.stock) {
+              alert(`Only ${item.stock} units available in stock`)
+              return { ...i, quantity: item.stock }
+            }
+            return { ...i, quantity: newQuantity }
+          }
+          return i
+        })
+      }
+
+      // Check stock limit for new items
+      if (item.stock !== undefined && item.quantity > item.stock) {
+        alert(`Only ${item.stock} units available in stock`)
+        return [...prevItems, { ...item, quantity: item.stock }]
       }
 
       return [...prevItems, item]
@@ -62,11 +124,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
 
       setItems((prevItems) =>
-        prevItems.map((i) =>
-          i.id === id && i.size === size && i.color === color
-            ? { ...i, quantity }
-            : i
-        )
+        prevItems.map((i) => {
+          if (i.id === id && i.size === size && i.color === color) {
+            // Check stock limit if stock information is available
+            if (i.stock !== undefined && quantity > i.stock) {
+              alert(`Only ${i.stock} units available in stock`)
+              return { ...i, quantity: i.stock }
+            }
+            return { ...i, quantity }
+          }
+          return i
+        })
       )
     },
     [removeItem]

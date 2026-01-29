@@ -94,6 +94,13 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       alert('Please select a color')
       return
     }
+    
+    // Check if requested quantity exceeds stock
+    if (customization.quantity > product.stock) {
+      alert(`Only ${product.stock} units available in stock`)
+      return
+    }
+    
     addItem({
       id: product.id,
       name: product.name,
@@ -101,6 +108,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       color: customization.color,
       size: customization.size,
       quantity: customization.quantity,
+      stock: product.stock,
     })
     setShowAddedMessage(true)
     setTimeout(() => setShowAddedMessage(false), 2000)
@@ -231,12 +239,16 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 </button>
                 <span className="w-12 text-center font-light">{customization.quantity}</span>
                 <button
-                  onClick={() => setCustomization({ ...customization, quantity: customization.quantity + 1 })}
+                  onClick={() => setCustomization({ ...customization, quantity: Math.min(product.stock, customization.quantity + 1) })}
                   className="w-8 h-8 flex items-center justify-center hover:bg-stone-100 rounded-sm"
+                  disabled={customization.quantity >= product.stock}
                 >
                   +
                 </button>
               </div>
+              {customization.quantity >= product.stock && (
+                <p className="text-xs text-orange-600 font-light mt-2">Maximum stock reached</p>
+              )}
             </div>
 
             {/* Add to Cart */}

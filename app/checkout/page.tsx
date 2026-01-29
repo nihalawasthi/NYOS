@@ -1,19 +1,37 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useCart } from '@/lib/cart-context'
 import { createOrder } from '@/lib/api'
-import { ArrowLeft, Check } from 'lucide-react'
+import { ArrowLeft, Check, Plus } from 'lucide-react'
 import { Navigation } from '@/components/navigation'
+import { PaymentForm } from '@/components/payment-form'
+
+interface SavedAddress {
+  id: string
+  customerName: string
+  customerEmail: string
+  customerPhone: string
+  street: string
+  city: string
+  state: string
+  zipCode: string
+}
 
 export default function CheckoutPage() {
   const router = useRouter()
   const { items, total, clearCart } = useCart()
+  const [isHydrated, setIsHydrated] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [orderId, setOrderId] = useState('')
+  const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const [paymentError, setPaymentError] = useState('')
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([])
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false)
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -24,6 +42,81 @@ export default function CheckoutPage() {
     state: '',
     zipCode: '',
   })
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isHydrated) return
+
+    // Get user data from localStorage if logged in
+    const userStr = localStorage.getItem('user')
+    let defaultName = ''
+    let defaultEmail = ''
+
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr)
+        defaultName = user.name || ''
+        defaultEmail = user.email || ''
+      } catch (error) {
+        console.error('Failed to parse user data:', error)
+      }
+    }
+
+    // Load saved addresses
+    const saved = localStorage.getItem('savedAddresses')
+    if (saved) {
+      try {
+        let addresses = JSON.parse(saved)
+        
+        // Deduplicate by address content (street + city + zip) but keep existing IDs
+        const seen = new Set<string>()
+        addresses = addresses.filter((addr: SavedAddress) => {
+          const key = `${addr.street}|${addr.city}|${addr.zipCode}`
+          if (seen.has(key)) {
+            return false
+          }
+          seen.add(key)
+          return true
+        })
+
+        // Re-save cleaned list
+        localStorage.setItem('savedAddresses', JSON.stringify(addresses))
+        
+        setSavedAddresses(addresses)
+        if (addresses.length > 0) {
+          setSelectedAddressId(addresses[0].id)
+          setFormData(addresses[0])
+        } else {
+          setShowNewAddressForm(true)
+          setFormData((prev) => ({
+            ...prev,
+            customerName: defaultName,
+            customerEmail: defaultEmail,
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to parse saved addresses:', error)
+        localStorage.removeItem('savedAddresses')
+        setShowNewAddressForm(true)
+        setFormData((prev) => ({
+          ...prev,
+          customerName: defaultName,
+          customerEmail: defaultEmail,
+        }))
+      }
+    } else {
+      setShowNewAddressForm(true)
+      setFormData((prev) => ({
+        ...prev,
+        customerName: defaultName,
+        customerEmail: defaultEmail,
+      }))
+    }
+  }, [isHydrated])
 
   if (items.length === 0 && !orderPlaced) {
     return (
@@ -93,6 +186,30 @@ export default function CheckoutPage() {
     }))
   }
 
+  const handleSaveAddress = () => {
+    if (!formData.customerName || !formData.customerEmail || !formData.street || !formData.city) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    const newAddress: SavedAddress = {
+      id: Date.now().toString(),
+      ...formData,
+    }
+
+    const updated = [...savedAddresses, newAddress]
+    localStorage.setItem('savedAddresses', JSON.stringify(updated))
+    setSavedAddresses(updated)
+    setSelectedAddressId(newAddress.id)
+    setShowNewAddressForm(false)
+  }
+
+  const handleSelectAddress = (address: SavedAddress) => {
+    setFormData(address)
+    setSelectedAddressId(address.id)
+    setShowNewAddressForm(false)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -102,8 +219,8 @@ export default function CheckoutPage() {
     }
 
     setIsProcessing(true)
-
     try {
+      // Always create order first, regardless of address type
       const orderData = {
         items: items.map((item) => ({
           productId: item.id,
@@ -119,21 +236,54 @@ export default function CheckoutPage() {
         totalAmount: total,
       }
 
+      console.log('Creating order with data:', orderData)
       const order = await createOrder(orderData)
+      console.log('Order created:', order)
 
-      if (order) {
-        setOrderId(order.id)
-        setOrderPlaced(true)
-        clearCart()
-      } else {
-        alert('Failed to create order. Please try again.')
+      if (!order || !order.id) {
+        throw new Error(`Failed to create order. Response: ${JSON.stringify(order)}`)
       }
+
+      console.log('Setting createdOrderId to:', order.id)
+      setCreatedOrderId(order.id)
+
+      // Save address if it's new
+      if (showNewAddressForm || savedAddresses.length === 0) {
+        const newAddress: SavedAddress = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          ...formData,
+        }
+        const updated = [...savedAddresses, newAddress]
+        localStorage.setItem('savedAddresses', JSON.stringify(updated))
+        setSavedAddresses(updated)
+        setSelectedAddressId(newAddress.id)
+      }
+
+      // Proceed to payment
+      setShowPaymentForm(true)
     } catch (error) {
-      console.error('Checkout error:', error)
-      alert('An error occurred during checkout.')
+      console.error('Error creating order:', error)
+      setPaymentError(error instanceof Error ? error.message : 'Failed to create order')
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  const handlePaymentSuccess = async (method: string) => {
+    try {
+      if (createdOrderId) {
+        setOrderId(createdOrderId)
+        setOrderPlaced(true)
+        clearCart()
+      }
+    } catch (error) {
+      console.error('Payment success error:', error)
+      setPaymentError('Failed to finalize order')
+    }
+  }
+
+  const handlePaymentError = (error: string) => {
+    setPaymentError(error)
   }
 
   return (
@@ -157,10 +307,14 @@ export default function CheckoutPage() {
         <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
           {/* Checkout Form */}
           <div className="lg:col-span-2">
+            {!showPaymentForm ? (
             <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Contact Information */}
+              {/* Contact Information - Always show and editable */}
               <div className="bg-white border border-stone-200 rounded-sm p-8">
-                <h2 className="text-xl font-light tracking-wide mb-6">Contact Information</h2>
+                <h2 className="text-xl font-light tracking-wide mb-2">Contact Information</h2>
+                {savedAddresses.length > 0 && !showNewAddressForm && (
+                  <p className="text-xs text-stone-500 font-light mb-6">Edit details if ordering for someone else</p>
+                )}
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-light mb-2">Full Name *</label>
@@ -197,74 +351,168 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Shipping Address */}
-              <div className="bg-white border border-stone-200 rounded-sm p-8">
-                <h2 className="text-xl font-light tracking-wide mb-6">Shipping Address</h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-light mb-2">Street Address *</label>
-                    <input
-                      type="text"
-                      name="street"
-                      value={formData.street}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-stone-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                      required
-                    />
+              {/* Saved Addresses */}
+              {savedAddresses.length > 0 && !showNewAddressForm && (
+                <div className="bg-white border border-stone-200 rounded-sm p-8">
+                  <h2 className="text-xl font-light tracking-wide mb-6">Shipping Address</h2>
+                  <div className="space-y-3 mb-6">
+                    {savedAddresses.map((address) => (
+                      <label
+                        key={address.id}
+                        className={`block p-4 border-2 rounded-sm cursor-pointer transition-all ${
+                          selectedAddressId === address.id
+                            ? 'border-stone-900 bg-stone-50'
+                            : 'border-stone-200 hover:border-stone-300'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            name="address"
+                            checked={selectedAddressId === address.id}
+                            onChange={() => handleSelectAddress(address)}
+                            className="mt-1"
+                          />
+                          <div>
+                            <p className="font-semibold text-stone-900">{address.street}</p>
+                            <p className="text-sm text-stone-600">
+                              {address.city}, {address.state} {address.zipCode}
+                            </p>
+                            {address.customerPhone && (
+                              <p className="text-xs text-stone-500 mt-2">Phone: {address.customerPhone}</p>
+                            )}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-light mb-2">City *</label>
-                      <input
-                        type="text"
-                        name="city"
-                        value={formData.city}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-stone-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-light mb-2">State</label>
-                      <input
-                        type="text"
-                        name="state"
-                        value={formData.state}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-stone-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-light mb-2">ZIP Code</label>
-                    <input
-                      type="text"
-                      name="zipCode"
-                      value={formData.zipCode}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border border-stone-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
-                    />
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewAddressForm(true)}
+                    className="flex items-center gap-2 text-stone-600 hover:text-stone-900 text-sm font-light transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Use Different Address
+                  </button>
                 </div>
-              </div>
+              )}
+
+              {/* New Address Form */}
+              {(showNewAddressForm || savedAddresses.length === 0) && (
+                <>
+                  {/* Shipping Address */}
+                  <div className="bg-white border border-stone-200 rounded-sm p-8">
+                    <h2 className="text-xl font-light tracking-wide mb-6">Shipping Address</h2>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-light mb-2">Street Address *</label>
+                        <input
+                          type="text"
+                          name="street"
+                          value={formData.street}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border border-stone-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
+                          required
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-light mb-2">City *</label>
+                          <input
+                            type="text"
+                            name="city"
+                            value={formData.city}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2 border border-stone-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-light mb-2">State</label>
+                          <input
+                            type="text"
+                            name="state"
+                            value={formData.state}
+                            onChange={handleInputChange}
+                            className="w-full px-4 py-2 border border-stone-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-light mb-2">ZIP Code</label>
+                        <input
+                          type="text"
+                          name="zipCode"
+                          value={formData.zipCode}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-2 border border-stone-300 rounded-sm focus:outline-none focus:ring-2 focus:ring-stone-400"
+                        />
+                      </div>
+                    </div>
+                    {savedAddresses.length > 0 && showNewAddressForm && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNewAddressForm(false)}
+                        className="text-stone-600 hover:text-stone-900 text-sm font-light mt-6 transition-colors"
+                      >
+                        Back to Saved Addresses
+                      </button>
+                    )}
+                  </div>
+
+                  {showNewAddressForm && savedAddresses.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleSaveAddress}
+                      className="w-full bg-stone-100 hover:bg-stone-200 text-stone-900 py-3 font-light tracking-wide transition-all rounded-sm mb-4"
+                    >
+                      SAVE THIS ADDRESS
+                    </button>
+                  )}
+                </>
+              )}
 
               {/* Payment */}
               <div className="bg-white border border-stone-200 rounded-sm p-8">
                 <h2 className="text-xl font-light tracking-wide mb-6">Payment</h2>
-                <div className="p-4 bg-stone-50 rounded-sm border border-stone-200 text-sm font-light text-stone-600 mb-6">
-                  <p>🔒 Secure payment powered by Stripe</p>
-                  <p className="text-xs mt-2 text-stone-500">Full payment processing coming soon. For now, orders are placed with pending payment status.</p>
-                </div>
+                {paymentError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-sm text-red-700 text-sm font-light mb-6">
+                    {paymentError}
+                  </div>
+                )}
+                {!showPaymentForm ? (
+                  <p className="p-4 bg-stone-50 rounded-sm border border-stone-200 text-sm font-light text-stone-600 mb-6">
+                    Click "Place Order" to proceed to payment
+                  </p>
+                ) : null}
               </div>
 
-              <button
-                type="submit"
-                disabled={isProcessing}
-                className="w-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-600 text-white py-3 font-light tracking-wide transition-all active:scale-95 rounded-sm"
-              >
-                {isProcessing ? 'PROCESSING...' : `PLACE ORDER - ₹${total.toFixed(0)}`}
-              </button>
+              {!showPaymentForm && (
+                <button
+                  type="submit"
+                  disabled={isProcessing}
+                  className="w-full bg-stone-900 hover:bg-stone-800 disabled:bg-stone-600 text-white py-3 font-light tracking-wide transition-all active:scale-95 rounded-sm"
+                >
+                  {isProcessing ? 'PROCESSING...' : `PLACE ORDER - ₹${total.toFixed(0)}`}
+                </button>
+              )}
             </form>
+            ) : (
+              <div className="space-y-8">
+                {/* Payment Section When showPaymentForm is true */}
+                <div className="bg-white border border-stone-200 rounded-sm p-8">
+                  <h2 className="text-xl font-light tracking-wide mb-6">Payment Details</h2>
+                  <PaymentForm
+                    amount={total}
+                    orderId={createdOrderId || undefined}
+                    customerName={formData.customerName}
+                    customerEmail={formData.customerEmail}
+                    onSuccess={handlePaymentSuccess}
+                    onError={handlePaymentError}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Order Summary */}

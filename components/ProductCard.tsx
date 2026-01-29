@@ -46,6 +46,23 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
     return (
         <div className="card">
             <div className="top-section">
+                {/* Out of Stock Overlay */}
+                {product.stock === 0 && (
+                    <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center z-10 rounded-t-lg">
+                        <div className="text-center">
+                            <p className="text-white text-xl font-light tracking-wide">OUT OF STOCK</p>
+                            <p className="text-white text-sm font-light mt-2 opacity-80">Currently Unavailable</p>
+                        </div>
+                    </div>
+                )}
+                
+                {/* Low Stock Badge */}
+                {product.stock > 0 && product.stock <= 5 && (
+                    <div className="absolute top-3 right-3 bg-orange-500 text-white px-3 py-1 rounded-sm text-xs font-light z-10">
+                        Only {product.stock} left
+                    </div>
+                )}
+                
                 {/* Product Image Background */}
                 <Link href={`/products/${product.id}`}>
                     <img
@@ -97,11 +114,19 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
                         <span className="regular-text">Price</span>
                     </div>
                     <div className="item">
-                        <button onClick={handleAddToCart} className="w-full h-full flex flex-col items-center justify-center cursor-pointer">
+                        <button 
+                            onClick={handleAddToCart} 
+                            disabled={product.stock === 0}
+                            className={`w-full h-full flex flex-col items-center justify-center ${
+                                product.stock === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                            }`}
+                        >
                             <span className="big-text">
                                 <i className="fa-solid fa-cart-plus"></i>
                             </span>
-                            <span className="regular-text">Add to Cart</span>
+                            <span className="regular-text">
+                                {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                            </span>
                         </button>
                     </div>
                     <div className="item">
